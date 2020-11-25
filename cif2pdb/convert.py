@@ -1,33 +1,4 @@
-# =====================================================
-# The script extracts atoms from a CIF file, converts
-# them into the PDB format and save in a .pdb file.
-#
-# Run:
-#
-#    python convert.py identifier ranges chain_type row_type indir outdir
-#
-# identifier - nameCHAINrest e.g. 1vcrAB or 1h8pA02
-#              note: name contains exactly 4 chars;
-#              chain(s) can contain any number of chars
-#              rest may be e.g. domainID for CATH files
-# ranges     - sequence of residue ranges e.g. 2,10-30
-# chain_type - 1: single chain  e.g. 1vcrA
-#              2: multiple chains e.g. 1vcrABC
-#              3: single chain + non-zero rest
-#                 e.g. 1h8pA02 (chain = A, rest = 02)
-# row_type   - A: include atoms (ATOM)
-#            - H: include heteroatoms (HETATM)
-#            - AH: include both atoms & heteroatoms
-# indir      - input dir where to look for the .cif
-#              file e.g. indir/1vcr.cif
-# outdir     - output dir where the .pdb file will
-#              be saved e.g. outdir/1vcrA0.pdb
-#
-# Cif files may be download e.g. from:
-# http://files.rcsb.org/download/ABCD.cif.gz
-# =====================================================
-
-import sys
+import click
 from os.path import join
 
 from cif2pdb.resid import transform_ranges
@@ -41,28 +12,28 @@ LOOP_EL_ID = "_atom_site."
 ATOM_ID = "ATOM"
 HETATM_ID = "HETATM"
 
-# Keys for dict that stores indices for specific fields in CIF file
-KEY_RECORD = "_atom_site.group_PDB"
-KEY_SERIAL = "_atom_site.id"
-KEY_ATOM = "_atom_site.label_atom_id"
-KEY_ALTLOC = "_atom_site.label_alt_id"
-KEY_RES = "_atom_site.label_comp_id"
-KEY_CHAIN = "_atom_site.auth_asym_id"  # AUTH
-KEY_RESSEQ = "_atom_site.auth_seq_id"  # AUTH --- remove !!!!
-KEY_ICODE = "_atom_site.pdbx_PDB_ins_code"
-KEY_POS_X = "_atom_site.Cartn_x"
-KEY_POS_Y = "_atom_site.Cartn_y"
-KEY_POS_Z = "_atom_site.Cartn_z"
-KEY_OCC = "_atom_site.occupancy"
-KEY_TFACTOR = "_atom_site.B_iso_or_equiv"
-KEY_SYMBOL = "_atom_site.type_symbol"
-KEY_CHARGE = "_atom_site.pdbx_formal_charge"
-KEY_MODEL_NUM = "_atom_site.pdbx_PDB_model_num"
+# Dictionary keys that specify indices for fields in the CIF file
+KEY_RECORD = "_atom_site.group_PDB"  # record name
+KEY_SERIAL = "_atom_site.id"  # atom serial number
+KEY_ATOM = "_atom_site.label_atom_id"  # atom name
+KEY_ALTLOC = "_atom_site.label_alt_id"  # alternate location indicator
+KEY_RES = "_atom_site.label_comp_id"  # residue name
+KEY_CHAIN = "_atom_site.auth_asym_id"  # strand ID / chain ID (AUTH)
+KEY_RESSEQ = "_atom_site.label_seq_id"  # residue sequence number
+KEY_ICODE = "_atom_site.pdbx_PDB_ins_code"  # code for insertion of residues
+KEY_POS_X = "_atom_site.Cartn_x"  # orthogonal coordinate for X in [A]
+KEY_POS_Y = "_atom_site.Cartn_y"  # orthogonal coordinate for Y in [A]
+KEY_POS_Z = "_atom_site.Cartn_z"  # orthogonal coordinate for X in [A]
+KEY_OCC = "_atom_site.occupancy"  # occupancy
+KEY_TFACTOR = "_atom_site.B_iso_or_equiv"  # temperature factor
+KEY_SYMBOL = "_atom_site.type_symbol"  # element symbol, right-justified
+KEY_CHARGE = "_atom_site.pdbx_formal_charge"  # charge on the atom
+KEY_MODEL_NUM = "_atom_site.pdbx_PDB_model_num"  # model number
 
 
-def fetch_atoms_from_cif(name, chain, chain_type, row_type, indir):
+def _fetch_atoms_from_cif(name, chain, chain_type, row_type, indir):
     """
-    Fetch atoms from cif file for speific chain.
+    Fetch atoms from cif file for specific chain.
 
     Parameters
     ----------
@@ -71,8 +42,8 @@ def fetch_atoms_from_cif(name, chain, chain_type, row_type, indir):
     chain : str
         chain identification
     chain_type : str
-        if 1: interpret chain as single chain
-        if 2: interpret chain as multiple chains
+        if 1 or 3: interpret chain as single chain
+        if 2: interpret chain as multiple 1-letter chains
     row_type : str
         if 'A': fetch ATOM rows
         if 'H': fetch HETATM rows
@@ -87,9 +58,9 @@ def fetch_atoms_from_cif(name, chain, chain_type, row_type, indir):
         value: index where to look for specific field
     """
 
-    assert chain, "{0} ERROR: chain not provided".format(identifier)
+    assert chain, "{0} ERROR: chain not provided".format(name)
     assert chain_type in ["1", "2", "3"], \
-        "{0} ERROR: chain type different from 1 or 2".format(chain_type)
+        "{0} ERROR: chain type different from 1, 2 or 3".format(chain_type)
     assert row_type in ["A", "H", "AH"], \
         "{0} ERROR: Row type different from A, H or AH".format(row_type)
 
@@ -155,7 +126,7 @@ def fetch_atoms_from_cif(name, chain, chain_type, row_type, indir):
         return atoms, fields
 
 
-def create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier):
+def _create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier):
     """
     Transform cif atoms into pdb atoms.
 
@@ -251,21 +222,48 @@ def create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier):
     return pdb_atoms
 
 
-if __name__ == "__main__":
+# TODO Add possibility to fetch cif file if not present in the input directory
 
-    assert len(sys.argv) >= 7, \
-        "{0} ERROR: wrong number of arguments".format(sys.argv[1:])
+@click.command()
+@click.option('--identifier', '-d', required=True, default=None, type=str,
+              help='CIF file identifier in the form: nameCHAINrest. '
+                   'Examples: 1vbzA, 1vcrAB, 1h8pA02. '
+                   'Notes: "name" (PDB ID) contains exactly 4 chars; '
+                   '"CHAIN" can contain any number of chars; '
+                   '"rest" might be e.g. domainID for CATH files or be empty.')
+@click.option('--ranges', '-s', required=False, default=None, type=str,
+              help='Sequence of residue ranges separated by comma or dash. '
+                   'Examples: 1,2,3,4 or 1-10 or 2,5,10-30.')
+@click.option('--chain_type', '-c', required=False, default='1', type=str,
+              help='Type of chain(s) specified in the identifier. '
+                   '1: single chain e.g. A in 1vcrA or A1 in 1vcrA1, '
+                   '2: multiple 1-letter chains e.g. A, B, C in 1vcrABC, '
+                   '3: single 1-letter chain + non-zero rest e.g. A in 1h8pA02.')
+@click.option('--row_type', '-r', required=False, default='AH', type=str,
+              help='Type of rows to be fetched. '
+                   'A: include atoms (ATOM), '
+                   'H: include heteroatoms (HETATM), '
+                   'AH: include both atoms abd heteroatoms.')
+@click.option('--indir', '-i', required=True,
+              type=click.Path(resolve_path=True, readable=True, exists=True),
+              help='Input directory where the name.cif file is located. '
+                   'Note: "name" is the 4-letter PDB ID specified in the identifier.')
+@click.option('--outdir', '-o', required=True, default=None,
+              type=click.Path(resolve_path=True, readable=True, exists=False),
+              help='Output directory where the .pdb file will saved.')
+@click.option('--outfile', '-f', required=False, default=None, type=str,
+              help='Alternative name of the output .pdb file.')
+def _convert_cif_to_pdb(identifier, ranges, chain_type, row_type, indir, outdir, outfile):
+    """
+    The script extracts atoms from a CIF file, converts
+    them into the PDB format and save in a .pdb file.
+    Cif files may be download e.g. from:
+    http://files.rcsb.org/download/abcd.cif.gz
 
-    identifier = sys.argv[1]  # nameCHAINrest
-    ranges = sys.argv[2]  # sequence of ranges
-    chain_type = sys.argv[3]  # chain type
-    row_type = sys.argv[4]  # atoms / hetatms
-    indir = sys.argv[5]  # full input path
-    outdir = sys.argv[6]  # full output path
-    if len(sys.argv) == 8:
-        filename = sys.argv[7]  # alternative filename
-    else:
-        filename = identifier
+    Example usage (note: 'abcdA.cif' shall be present in 'input_directory'):
+
+    python cif2pdb/convert.py -d abcdA -i input_directory/ -o output_directory/
+    """
 
     name = identifier[0:4]
     if chain_type == "3":
@@ -273,21 +271,30 @@ if __name__ == "__main__":
     else:
         chain = identifier[4:]
 
-    cif_atoms, cif_fields = fetch_atoms_from_cif(name, chain, chain_type, row_type, indir)
+    cif_atoms, cif_fields = _fetch_atoms_from_cif(name, chain, chain_type, row_type, indir)
 
     assert cif_atoms, "{0} ERROR: nothing found for chain(s) {1}" \
         .format(identifier, chain)
 
-    pdb_atoms = create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier)
+    pdb_atoms = _create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier)
 
-    if ranges != "None":
+    if ranges:
         residues_to_fetch = transform_ranges(ranges)
         pdb_atoms = get_atoms_for_residues(pdb_atoms, residues_to_fetch)
 
-    with open(join(outdir, "%s.pdb" % (filename)), "w") as f:
+    # Save .pdb file
+
+    if not outfile:
+        outfile = identifier
+
+    with open(join(outdir, "%s.pdb" % (outfile)), "w") as f:
         for line in pdb_atoms:
             f.write(line)
         f.write("TER\n")
         f.write("END\n")
 
-    print("{0} OK".format(filename))
+    print("{0} OK".format(outfile))
+
+
+if __name__ == "__main__":
+    _convert_cif_to_pdb()
