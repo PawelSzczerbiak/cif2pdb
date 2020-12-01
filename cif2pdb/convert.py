@@ -1,4 +1,5 @@
 import click
+
 from os.path import join
 
 from cif2pdb.resid import transform_ranges
@@ -207,11 +208,11 @@ def _create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier):
                f"{elements[idx_resseq][-4:]:>4}" \
                f"{elements[idx_icode]:>1}" \
                f"   " \
-               f"{elements[idx_pos_x][:7]:>8}" \
-               f"{elements[idx_pos_y][:7]:>8}" \
-               f"{elements[idx_pos_z][:7]:>8}" \
-               f"{elements[idx_occ][:5]:>6}" \
-               f"{elements[idx_tfactor][:5]:>6}" \
+               f"{elements[idx_pos_x][:8]:>8}" \
+               f"{elements[idx_pos_y][:8]:>8}" \
+               f"{elements[idx_pos_z][:8]:>8}" \
+               f"{elements[idx_occ][:6]:>6}" \
+               f"{elements[idx_tfactor][:6]:>6}" \
                f"          " \
                f"{elements[idx_symbol]:>2}" \
                f"{elements[idx_charge]:>1}" \
