@@ -1,12 +1,10 @@
-# =====================================================
-# Script calculates number of residues in PDB file
-# =====================================================
-
 import sys
 import os
 
 from os.path import join
 from os.path import normpath
+
+import cif2pdb.convert
 
 
 AA_SEQ_DICT = {"ALA": "A",
@@ -40,7 +38,7 @@ AA_SEQ_DICT = {"ALA": "A",
 def fetch_residues_from_pdb_file(path):
     """
     Fetch atom residues, their names and corresponding indices
-    from PDB file (ATOM flag).
+    (line numbers) from PDB file (ATOM/HETATM flag).
 
     Parameters
     ----------
@@ -54,19 +52,17 @@ def fetch_residues_from_pdb_file(path):
     names : list of int
         e.g. "ALA", "ASN" etc.
     indices : list of int
-        e.g. 0, 1 et.c
+        e.g. 0, 1 etc.
     """
-    residues, names, indices = [], [], []
     with open(path, 'r') as f:
         data = f.readlines()
-        residues, names, indices = fetch_residues_from_pdb_list(data)
-    return residues, names, indices
+        return fetch_residues_from_pdb_list(data)
 
 
 def fetch_residues_from_pdb_list(list_atoms):
     """
     Fetch atom residues, their names and corresponding indices
-    from list of PDB atoms.
+    (line numbers) from list of PDB atoms (ATOM/HETATM flag).
 
     Parameters
     ----------
@@ -75,7 +71,7 @@ def fetch_residues_from_pdb_list(list_atoms):
 
     Returns
     -------
-    residues : list of str
+    residues : list ocif2pdb.convertf str
         e.g. "2", "3" etc.
     names : list of int
         e.g. "ALA", "ASN" etc.
@@ -84,7 +80,8 @@ def fetch_residues_from_pdb_list(list_atoms):
     """
     residues, names, indices = [], [], []
     for i, line in enumerate(list_atoms):
-        if line.startswith("ATOM"):
+        if line.startswith(cif2pdb.convert.ATOM_ID) or \
+                line.startswith(cif2pdb.convert.HETATM_ID):
             residues.append(line[22:26].strip())
             names.append(line[17:20].strip())
             indices.append(i)
@@ -94,7 +91,7 @@ def fetch_residues_from_pdb_list(list_atoms):
 def transform_ranges(ranges):
     """
     Transform sequence of ranges into a list
-    of sorted integeres.
+    of sorted integers.
 
     Parameteres
     -----------
@@ -108,6 +105,9 @@ def transform_ranges(ranges):
         [1, 2, 3, 4, 5, 100, 200, 201, 202, 300]
     -------
     """
+    if not ranges:
+        return []
+
     ids = set()
     ranges = ranges.split(',')
     for range_ in ranges:
@@ -124,8 +124,8 @@ def transform_ranges(ranges):
 
 def get_atoms_for_residues(list_atoms, list_residues):
     """
-    Get atoms from list of PDB atoms (ATOM flag)
-    that belong to specfied residues.
+    Get atoms from list of PDB atoms (ATOM/HETATM flag)
+    that belong to specified residues.
 
     Parameters
     ----------
@@ -148,9 +148,28 @@ def get_atoms_for_residues(list_atoms, list_residues):
     return atoms
 
 
+def get_number_of_residues_from_pdb_file(path):
+    """
+    Return number of residues from PDB file.
+
+    Parameters
+    ----------
+    path : str
+        path to PDB file
+
+    Returns
+    -------
+    int
+        Number of residues.
+    """
+    residues, _, _ = fetch_residues_from_pdb_file(path)
+    number = get_number_of_residues(residues)
+    return number
+
+
 def get_number_of_residues(residues):
     """
-    Return number of residues.
+    Return number of residues from residue list.
 
     Parameters
     ----------
@@ -165,6 +184,9 @@ def get_number_of_residues(residues):
         Number of elements changes in the list. In the example
         above we would get 3 and 4 respectively.
     """
+    if not residues:
+        return 0
+
     prev = residues[0]
     number = 1
     for i in range(len(residues) - 1):
@@ -175,8 +197,8 @@ def get_number_of_residues(residues):
     return number
 
 
-# TODO: generalize to include residue ranges and PDB list
-def get_sequence_for_pdb_file(path):
+# TODO: generalize to include chains, residue ranges and PDB list
+def get_sequence_from_pdb_file(path):
     """
     Return sequence from a PDB file.
 

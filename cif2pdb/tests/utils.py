@@ -1,12 +1,15 @@
+import os
 import re
 
-from cif2pdb.convert import _convert_cif_to_pdb
 from click.testing import CliRunner
+from Bio.PDB import PDBParser
+from Bio.SeqUtils import seq1
+
+from cif2pdb.convert import _convert_cif_to_pdb
 
 runner = CliRunner()
+pdbparser = PDBParser()
 
-
-# Utility functions
 
 def dict2str(dict_):
     """
@@ -19,6 +22,7 @@ def dict2str(dict_):
     Returns
     -------
     str
+        joined 'key' 'value' pairs separated by space
     """
     return " ".join([f'{k} {v}' for k, v in dict_.items()])
 
@@ -36,7 +40,8 @@ def generate_pdb_file(params, inpath, outpath):
     outpath : str
         output path for PDB file
     """
-    response = runner.invoke(_convert_cif_to_pdb, f"{params} -i {inpath} -o {outpath}")
+    response = runner.invoke(_convert_cif_to_pdb,
+                             f"{params} -i {inpath} -o {outpath}")
     assert response.exit_code == 0
 
 
@@ -50,6 +55,7 @@ def split_pdb_atom_lines(lines):
     ----------
     lines : list of str
         list of PDB atom strings
+
     Returns
     -------
     list of dict
@@ -107,8 +113,7 @@ def compare_pdb_files(file_1, file_2):
     atoms_2 = sorted(atoms_2, key=lambda d: (d['resseq'], d['atom']))
 
     # Compare all atoms in generated and expected files
-    for i in range(len(atoms_1)):
-        atom_1, atom_2 = atoms_1[i], atoms_2[i]
+    for atom_1, atom_2 in zip(atoms_1, atoms_2):
         for k in ('atype', 'atom', 'resid',
                   'icode', 'pos_x', 'pos_y', 'pos_z',
                   'occ', 'tfactor', 'symbol'):
@@ -117,3 +122,25 @@ def compare_pdb_files(file_1, file_2):
                                            f'id_2 {atom_2["index"]}: ' \
                                            f'{atom_1[k]} different from {atom_2[k]}'
 
+
+def get_expected_chains(full_path):
+    """
+    Fetch sequences for all chains in a PDB file
+    using Biopython API.
+
+    Parameters
+    ----------
+    full_path : str
+        path to the PDB file
+
+    Returns
+    -------
+    dict (str : str)
+        dictionary of the form (chain : sequence)
+    """
+    # Solution with Bio.SeqIO doesn't work!
+    # https://stackoverflow.com/questions/59826385/biopython-is-there-a-one-liner-to-extract-the-amino-acid-sequence-of-a-specific
+    id_ = os.path.basename(full_path).split('.')[0]
+    structure = pdbparser.get_structure(id_, full_path)
+    return {chain.id: seq1(''.join(residue.resname for residue in chain))
+            for chain in structure.get_chains()}

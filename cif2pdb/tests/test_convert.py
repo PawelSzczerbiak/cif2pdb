@@ -8,9 +8,9 @@ from cif2pdb.tests.utils import generate_pdb_file
 from cif2pdb.tests.utils import compare_pdb_files
 from cif2pdb.convert import _convert_cif_to_pdb
 
-# ================================================================
+# ===============================================================
 # Testing command-line behaviour of the cif2pdb/convert.py script
-# ================================================================
+# ===============================================================
 
 # Different databases encode their PDB IDs in a different way
 # especially, regarding chain and residue range (below).
