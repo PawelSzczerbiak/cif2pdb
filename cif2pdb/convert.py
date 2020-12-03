@@ -2,8 +2,7 @@ import click
 
 from os.path import join
 
-from cif2pdb.resid import transform_ranges
-from cif2pdb.resid import get_atoms_for_residues
+import cif2pdb.resid
 
 
 # Globals (used in mmCIF file)
@@ -280,8 +279,8 @@ def _convert_cif_to_pdb(identifier, ranges, chain_type, row_type, indir, outdir,
     pdb_atoms = _create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier)
 
     if ranges:
-        residues_to_fetch = transform_ranges(ranges)
-        pdb_atoms = get_atoms_for_residues(pdb_atoms, residues_to_fetch)
+        residues_to_fetch = cif2pdb.resid.transform_ranges(ranges)
+        pdb_atoms = cif2pdb.resid.get_atoms_for_residues(pdb_atoms, residues_to_fetch)
 
     # Save .pdb file
 
