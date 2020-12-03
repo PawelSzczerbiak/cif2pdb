@@ -1,5 +1,6 @@
 import sys
 import os
+import click
 
 from os.path import join
 from os.path import normpath
@@ -222,43 +223,67 @@ def get_sequence_from_pdb_file(path):
     return seq
 
 
-# TODO: rewrite using Click
-if __name__ == "__main__":
+@click.command()
+@click.option('--input_path', '-i', required=True,
+              type=click.Path(resolve_path=True, readable=True, exists=True),
+              help='Full input path to the .pdb file.')
+@click.option('--outdir', '-o', required=True, default=None,
+              type=click.Path(resolve_path=True, readable=True, exists=True),
+              help='Directory where the output file is (or will be) located.')
+@click.option('--limits', '-l', required=True, default=None, type=str,
+              help='Residue number limits (comma separated). '
+                   'Examples: 100 or 40,100,200 or 10,100.')
+@click.option('--file_root', '-f', required=True, default=None, type=str,
+              help='Output file root.')
+@click.option('--name_id', '-n', required=False, default=-1, type=int,
+              help='Integer specifying which input path index to use '
+                   'as a structure name indicator counting from the end. '
+                   'E.g. for path/to/file.pdb we would get (default: -1): '
+                   '"file.pdb" for -1, '
+                   '"to" for -2, '
+                   '"path" for -3.')
+def _split_files_based_on_length(input_path, outdir, limits, file_root, name_id):
+    """
+    The script loads PDB file, calculates number of residues
+    and saves results (format: 'name_id\\nlength') to file
+    indicated by 'limits' and 'file_root'.
+    When paralleled, It might be useful to split PDB files
+    according to their length.
 
-    assert len(sys.argv) == 6, "{0} ERROR: wrong number of arguments".format(sys.argv[1:])
+    Example usage (suppose file.pdb has 40 residues):
 
-    input_path = sys.argv[1]  # full input path to the PDB files
-    output_path = sys.argv[2]  # output path
-    output_file = sys.argv[3]  # output file
-    limits = sys.argv[4]  # residue number limits (comma separated)
-    indicator = sys.argv[5]  # which input path index to use as a structure name indicator
-    # counting from the end e.g. for path/to/file.pdb we'd get:
-    # "file.pdb" for -1
-    # "to"       for -2
-    # "path"     for -3
+    python cif2pdb/resid.py  -i input_path/id_1/file.pdb -o output_path
+    -l 40 -f split_len -n -2
+
+    would produce file: 'output_path/split_len__geq_40'
+    with one line appended: 'id_1 40\\n'.
+    """
 
     limits = list(map(lambda x: int(x), limits.split(",")))
 
     residues, _, _ = fetch_residues_from_pdb_file(input_path)
     number = get_number_of_residues(residues)
 
-    assert len(limits) >= 1, "{0} ERROR: wrong number of limits".format(limits)
+    assert len(limits) >= 1, f"{limits} ERROR: wrong number of limits."
 
-    indicator = int(indicator)
-    indicator_name = normpath(input_path).split(os.sep)[indicator]
+    indicator_name = normpath(input_path).split(os.sep)[name_id]
     line = f"{indicator_name} {number}\n"
 
     if number < limits[0]:
-        with open(join(output_path,
-                       f"{output_file}__less_{limits[0]}"), 'a') as f:
+        with open(join(outdir,
+                       f"{file_root}__less_{limits[0]}"), 'a') as f:
             f.write(line)
     elif number >= limits[-1]:
-        with open(join(output_path,
-                       f"{output_file}__geq_{limits[-1]}"), 'a') as f:
+        with open(join(outdir,
+                       f"{file_root}__geq_{limits[-1]}"), 'a') as f:
             f.write(line)
     else:
         for i in range(len(limits[1:])):
             if limits[i] <= number < limits[i + 1]:
-                with open(join(output_path,
-                               f"{output_file}__geq_{limits[i]}_less_{limits[i + 1]}"), 'a') as f:
+                with open(join(outdir,
+                               f"{file_root}__geq_{limits[i]}_less_{limits[i + 1]}"), 'a') as f:
                     f.write(line)
+
+
+if __name__ == "__main__":
+    _split_files_based_on_length()

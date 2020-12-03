@@ -1,11 +1,14 @@
 import os
-import pytest
 import glob
+import pytest
 
 from os.path import join
+from click.testing import CliRunner
 
+from cif2pdb.tests.utils import dict2str
 from cif2pdb.tests.utils import get_expected_chains
-
+from cif2pdb.tests.utils import generate_resid_file
+from cif2pdb.tests.utils import compare_resid_files
 from cif2pdb.resid import fetch_residues_from_pdb_file
 from cif2pdb.resid import fetch_residues_from_pdb_list
 from cif2pdb.resid import transform_ranges
@@ -13,11 +16,14 @@ from cif2pdb.resid import get_atoms_for_residues
 from cif2pdb.resid import get_number_of_residues
 from cif2pdb.resid import get_number_of_residues_from_pdb_file
 from cif2pdb.resid import get_sequence_from_pdb_file
+from cif2pdb.resid import _split_files_based_on_length
 
 # Globals
 
 FAKEPATH = join(os.getcwd(), "data/fake")
 PDBPPATH = join(os.getcwd(), "data/pdb_expected")
+EXPPATH = join(os.getcwd(), "data/resid_expected")
+OUTPATH = join(os.getcwd(), "data/resid_generated")
 
 FAKE_ATOM_LIST = \
     ['ATOM      1  N   MET 3   1     241.114 202.652 206.225  1.00 84.60      CA   N  \n',
@@ -35,11 +41,20 @@ FAKE_ATOM_LIST = \
      'ATOM     21  O   ARG 3   3     243.117 196.354 212.168  1.00 50.71      CA   O  \n',
      'ATOM     22  CB  ARG 3   3     244.654 196.546 209.322  1.00 32.77      CA   C  \n']
 
+runner = CliRunner()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def clean_generated_files():
+    print("\nRemoving old generated files...")
+    for f in glob.glob(join(OUTPATH, '*')):
+        os.remove(f)
+    assert glob.glob(join(OUTPATH, '*')) == []
+
 
 # =========================================================
 # Testing function behaviour of the cif2pdb/resid.py script
 # =========================================================
-
 
 def test_fetch_residues_from_pdb_file_not_exists():
     with pytest.raises(FileNotFoundError):
@@ -153,3 +168,44 @@ def test_get_number_of_residues_from_pdb_file():
         joined_chains = "".join(chains.values())
         assert get_number_of_residues_from_pdb_file(file) == len(joined_chains), \
             f" ERROR for file {file}"
+
+
+# =============================================================
+# Testing command line behaviour of the cif2pdb/resid.py script
+# =============================================================
+
+def test_help():
+    response = runner.invoke(_split_files_based_on_length, ["--help"])
+    assert response.exit_code == 0
+    assert "The script loads PDB file, calculates number of residues" in response.output
+
+
+def test_split_many_files():
+    # Testing on some selected files only!
+    files = ["2fjhL.pdb", "2fphX_1-77.pdb", "3d3bJ_3-87.pdb", "5uyl32.pdb"]
+    file_root = "resid_many"
+    params = {'-l': '47,85', '-f': file_root}
+    # Generate/append 'resid' files
+    for file in files:
+        INPATH = join(PDBPPATH, file)
+        generate_resid_file(dict2str(params), INPATH, OUTPATH)
+    # Compare 'resid' files
+    for expected in glob.glob(join(EXPPATH, f"{file_root}*")):
+        generated = join(OUTPATH, os.path.basename(expected))
+        compare_resid_files(generated, expected)
+
+
+def test_split_one_file():
+    # Testing -n flag
+    files = ["5uyl32.pdb"]
+    file_root = "resid_one"
+    params = {'-l': '47,85', '-f': file_root, '-n': -2}
+    # Generate/append 'resid' files
+    for file in files:
+        INPATH = join(PDBPPATH, file)
+        generate_resid_file(dict2str(params), INPATH, OUTPATH)
+    # Compare 'resid' files
+    for expected in glob.glob(join(EXPPATH, f"{file_root}*")):
+        generated = join(OUTPATH, os.path.basename(expected))
+        compare_resid_files(generated, expected)
+

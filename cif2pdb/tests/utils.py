@@ -1,11 +1,13 @@
 import os
 import re
 
+from filecmp import cmp
 from click.testing import CliRunner
 from Bio.PDB import PDBParser
 from Bio.SeqUtils import seq1
 
 from cif2pdb.convert import _convert_cif_to_pdb
+from cif2pdb.resid import _split_files_based_on_length
 
 runner = CliRunner()
 pdbparser = PDBParser()
@@ -29,7 +31,7 @@ def dict2str(dict_):
 
 def generate_pdb_file(params, inpath, outpath):
     """
-    Generate testing  PDB file.
+    Generate testing PDB file.
 
     Parameters
     ----------
@@ -144,3 +146,38 @@ def get_expected_chains(full_path):
     structure = pdbparser.get_structure(id_, full_path)
     return {chain.id: seq1(''.join(residue.resname for residue in chain))
             for chain in structure.get_chains()}
+
+
+def generate_resid_file(params, inpath, outpath):
+    """
+    Generate/append testing 'resid' file i.e.
+    the output of cif2pdb/resid.py.
+    For more details run: 'cif2pdb/resid.py --help'
+
+    Parameters
+    ----------
+    params : str
+        parameters of conversion
+    inpath : str
+        input path to CIF file
+    outpath : str
+        output path for PDB file
+    """
+    response = runner.invoke(_split_files_based_on_length,
+                             f"-i {inpath} -o {outpath} {params}")
+    assert response.exit_code == 0
+
+
+def compare_resid_files(file_1, file_2):
+    """
+    Compare two resid files.
+    For more details run: 'cif2pdb/resid.py --help'
+
+    Parameters
+    ----------
+    file_1 : str
+        path to the first file
+    file_2 : str
+        path to the second file
+    """
+    assert cmp(file_1, file_2), f" ERROR comparing file {os.path.basename(file_1)}"
