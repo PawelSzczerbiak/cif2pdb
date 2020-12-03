@@ -1,4 +1,6 @@
 import os
+import glob
+import pytest
 
 from os.path import join
 from click.testing import CliRunner
@@ -9,7 +11,7 @@ from cif2pdb.tests.utils import compare_pdb_files
 from cif2pdb.convert import _convert_cif_to_pdb
 
 # ===============================================================
-# Testing command-line behaviour of the cif2pdb/convert.py script
+# Testing command line behaviour of the cif2pdb/convert.py script
 # ===============================================================
 
 # Different databases encode their PDB IDs in a different way
@@ -32,10 +34,18 @@ EXPPATH = join(os.getcwd(), "data/pdb_expected")
 runner = CliRunner()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def clean_generated_files():
+    print("\nRemoving old generated files...")
+    for f in glob.glob(join(OUTPATH, '*')):
+        os.remove(f)
+    assert glob.glob(join(OUTPATH, '*')) == []
+
+
 def test_help():
     response = runner.invoke(_convert_cif_to_pdb, ["--help"])
     assert response.exit_code == 0
-    assert "The script extracts atoms from a CIF file" in response.output
+    assert "The script extracts atoms from mmCIF file" in response.output
 
 
 def test_convert_cath_2fphX01():

@@ -6,7 +6,7 @@ from cif2pdb.resid import transform_ranges
 from cif2pdb.resid import get_atoms_for_residues
 
 
-# Globals (used in CIF file)
+# Globals (used in mmCIF file)
 
 LOOP_ID = "loop_"
 LOOP_EL_ID = "_atom_site."
@@ -34,7 +34,7 @@ KEY_MODEL_NUM = "_atom_site.pdbx_PDB_model_num"  # model number
 
 def _fetch_atoms_from_cif(name, chain, chain_type, row_type, indir):
     """
-    Fetch atoms from cif file for specific chain.
+    Fetch atoms from mmCIF file for specific chain.
 
     Parameters
     ----------
@@ -53,7 +53,7 @@ def _fetch_atoms_from_cif(name, chain, chain_type, row_type, indir):
     Returns
     -------
     list of str
-        lines with atoms details in CIF format
+        lines with atoms details in mmCIF format
     dict (str : int)
         key: field name
         value: index where to look for specific field
@@ -129,7 +129,7 @@ def _fetch_atoms_from_cif(name, chain, chain_type, row_type, indir):
 
 def _create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier):
     """
-    Transform cif atoms into pdb atoms.
+    Transform mmCIF atoms into pdb atoms.
 
     Parameters
     ----------
@@ -227,7 +227,7 @@ def _create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier):
 
 @click.command()
 @click.option('--identifier', '-d', required=True, default=None, type=str,
-              help='CIF file identifier in the form: nameCHAINrest. '
+              help='mmCIF file identifier in the form: nameCHAINrest. '
                    'Examples: 1vbzA, 1vcrAB, 1h8pA02. '
                    'Notes: "name" (PDB ID) contains exactly 4 chars; '
                    '"CHAIN" can contain any number of chars; '
@@ -256,9 +256,9 @@ def _create_pdb_atoms_from_cif(cif_atoms, cif_fields, identifier):
               help='Alternative name of the output .pdb file.')
 def _convert_cif_to_pdb(identifier, ranges, chain_type, row_type, indir, outdir, outfile):
     """
-    The script extracts atoms from a CIF file, converts
+    The script extracts atoms from mmCIF file, converts
     them into the PDB format and save in a .pdb file.
-    Cif files may be download e.g. from:
+    mmCIF files may be download e.g. from:
     http://files.rcsb.org/download/abcd.cif.gz
 
     Example usage (note: 'abcdA.cif' shall be present in 'input_directory'):
