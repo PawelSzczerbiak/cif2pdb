@@ -196,10 +196,25 @@ def test_split_many_files():
 
 
 def test_split_one_file():
-    # Testing -n flag
+    # Testing -n flag on one file
     files = ["5uyl32.pdb"]
     file_root = "resid_one"
     params = {'-l': '47,85', '-f': file_root, '-n': -2}
+    # Generate/append 'resid' files
+    for file in files:
+        INPATH = join(PDBPPATH, file)
+        generate_resid_file(dict2str(params), INPATH, OUTPATH)
+    # Compare 'resid' files
+    for expected in glob.glob(join(EXPPATH, f"{file_root}*")):
+        generated = join(OUTPATH, os.path.basename(expected))
+        compare_resid_files(generated, expected)
+
+
+def test_do_not_split():
+    # Testing on some selected files only!
+    files = ["2fjhL.pdb", "2fphX_1-77.pdb", "3d3bJ_3-87.pdb", "5uyl32.pdb"]
+    file_root = "resid_not_split"
+    params = {'-f': file_root}
     # Generate/append 'resid' files
     for file in files:
         INPATH = join(PDBPPATH, file)
