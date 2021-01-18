@@ -19,7 +19,7 @@ The package:
 In main `cif2pdb` directory run e.g.
 
 ```
-conda create --name cif2pdb
+conda create --name cif2pdb python=3.8
 conda activate cif2pdb
 python setup.py install
 ```
