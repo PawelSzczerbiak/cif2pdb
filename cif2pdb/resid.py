@@ -35,7 +35,7 @@ AA_SEQ_DICT = {"ALA": "A",
                }
 
 
-def fetch_residues_from_pdb_file(path):
+def fetch_residues_from_pdb_file(path, atoms_only=False):
     """
     Fetch atom residues, their names and corresponding indices
     (line numbers) from PDB file (ATOM/HETATM flag).
@@ -44,6 +44,8 @@ def fetch_residues_from_pdb_file(path):
     ----------
     path : str
         path to PDB file
+    atoms_only : bool
+        fetch only atoms (ATOM)
 
     Returns
     -------
@@ -56,10 +58,10 @@ def fetch_residues_from_pdb_file(path):
     """
     with open(path, 'r') as f:
         data = f.readlines()
-        return fetch_residues_from_pdb_list(data)
+        return fetch_residues_from_pdb_list(data, atoms_only)
 
 
-def fetch_residues_from_pdb_list(list_atoms):
+def fetch_residues_from_pdb_list(list_atoms, atoms_only=False):
     """
     Fetch atom residues, their names and corresponding indices
     (line numbers) from list of PDB atoms (ATOM/HETATM flag).
@@ -68,6 +70,8 @@ def fetch_residues_from_pdb_list(list_atoms):
     ----------
     list_atoms : list of str
         list of PDB atoms
+    atoms_only : bool
+        fetch only atoms (ATOM)
 
     Returns
     -------
@@ -81,7 +85,7 @@ def fetch_residues_from_pdb_list(list_atoms):
     residues, names, indices = [], [], []
     for i, line in enumerate(list_atoms):
         if line.startswith(cif2pdb.convert.ATOM_ID) or \
-                line.startswith(cif2pdb.convert.HETATM_ID):
+                (not atoms_only and line.startswith(cif2pdb.convert.HETATM_ID)):
             residues.append(line[22:26].strip())
             names.append(line[17:20].strip())
             indices.append(i)
@@ -197,28 +201,66 @@ def get_number_of_residues(residues):
     return number
 
 
-# TODO: generalize to include chains, residue ranges and PDB list
-def get_sequence_from_pdb_file(path):
+def fetch_seqres_from_pdb_file(path):
     """
-    Return sequence from a PDB file.
+    Fetch SEQRES records from PDB file.
 
     Parameters
     ----------
     path : str
         path to PDB file
+
+    Returns
+    -------
+    seqres : list of str
+        e.g. "SEQRES   1 A  133  GLU ALA GLU ALA HIS ..."
+    """
+    with open(path, 'r') as f:
+        data = f.readlines()
+    seqres = [line for line in data
+              if line.startswith("SEQRES")]
+    return seqres
+
+
+# TODO: generalize to include chains, residue ranges and PDB list
+def get_sequence_from_pdb_file(path, seqres=True):
+    """
+    Return sequence from a PDB file.
+    NOTE: only 3-letter aminoacid codes are supported!
+
+    Parameters
+    ----------
+    path : str
+        path to PDB file
+    seqres : bool
+        get sequence based on SEQRES information (if available)
+
     Returns
     -------
     seq : str
         Sequence of aminoacids e.g. AAKBCA etc.
     """
-    residues, names, _ = fetch_residues_from_pdb_file(path)
-    seq = AA_SEQ_DICT[names[0]]
-    prev = residues[0]
-    for i in range(len(residues) - 1):
-        cont = residues[i + 1]
-        if prev != cont:
-            seq += AA_SEQ_DICT[names[i + 1]]
-            prev = cont
+
+    if seqres:
+        seq = []
+        records = fetch_seqres_from_pdb_file(path)
+        if records:
+            for record in records:
+                seq.extend([AA_SEQ_DICT[el] for el in record[19:].split()])
+            seq = "".join(seq)
+        else:
+            # SEQRES information not found
+            seqres = False
+    if not seqres:
+        residues, names, _ = fetch_residues_from_pdb_file(path,
+                                                          atoms_only=True)
+        seq = AA_SEQ_DICT[names[0]]
+        prev = residues[0]
+        for i in range(len(residues) - 1):
+            cont = residues[i + 1]
+            if prev != cont:
+                seq += AA_SEQ_DICT[names[i + 1]]
+                prev = cont
     return seq
 
 
