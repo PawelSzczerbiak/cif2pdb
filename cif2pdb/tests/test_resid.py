@@ -154,6 +154,25 @@ def test_get_sequence_from_pdb_file():
             f" ERROR for file {file}"
 
 
+def test_get_sequence_from_pdb_file_seqres():
+    pdb_file = join(FAKEPATH, "1AAQA.pdb")
+    assert pdb_file, f" ERROR directory with test data cannot be empty"
+    # Note: ATOM data are not complete!
+    expected = "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMSLPGRWKPKMIGG" \
+               "IGGFIKVRQYDQIIIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF"
+    assert get_sequence_from_pdb_file(pdb_file) == expected, \
+        f" ERROR for file {pdb_file}"
+
+
+def test_get_sequence_from_pdb_file_seqres_false():
+    pdb_file = join(FAKEPATH, "1AAQA.pdb")
+    assert pdb_file, f" ERROR directory with test data cannot be empty"
+    # Note: ATOM data are not complete, but use that inseted of SEQRES
+    expected = "PQITL"
+    assert get_sequence_from_pdb_file(pdb_file, seqres=False) == expected, \
+        f" ERROR for file {pdb_file}"
+
+
 def test_get_number_of_residues_from_pdb_file_not_exists():
     with pytest.raises(FileNotFoundError):
         get_sequence_from_pdb_file("some_wrong_path")
