@@ -35,6 +35,45 @@ AA_SEQ_DICT = {"ALA": "A",
                }
 
 
+def fetch_domain_from_pdb_file(path, range_, outdir, outfile, atoms_only=False):
+    """
+    Fetch domain/chain/motif based on residue range (e.g. 2-100,102 etc.)
+    from PDB file (ATOM/HETATM flag) and save it as a separete PDB file.
+
+    Parameters
+    ----------
+    path : str
+        path to input PDB file
+    range_ : str
+        residue range e.g. 1-200 or 501-601 or 234,240-250 etc.
+    outdir : str
+        path to output PDB file
+    outfile : str
+        name of output PDB file without `.pdb` extension e.g. `resfile`
+    atoms_only : bool
+        fetch only atoms (ATOM)
+
+    Returns
+    -------
+    PDB file
+    """
+    with open(path, 'r') as f:
+        data = f.readlines()
+    residues = transform_ranges(range_)
+    lines = []
+    for line in data:
+        if line.startswith(cif2pdb.convert.ATOM_ID) or \
+                (not atoms_only and line.startswith(cif2pdb.convert.HETATM_ID)):
+            residue = int(line[22:26].strip())
+            if residue in residues:
+                lines.append(line)
+    with open(join(outdir, "%s.pdb" % (outfile)), "w") as f:
+        for line in lines:
+            f.write(line)
+        f.write("TER\n")
+        f.write("END\n")
+
+
 def fetch_residues_from_pdb_file(path, atoms_only=False):
     """
     Fetch atom residues, their names and corresponding indices
@@ -43,7 +82,7 @@ def fetch_residues_from_pdb_file(path, atoms_only=False):
     Parameters
     ----------
     path : str
-        path to PDB file
+        path to input PDB file
     atoms_only : bool
         fetch only atoms (ATOM)
 
