@@ -80,3 +80,9 @@ If we don't specify the `-l` flag we can produce one output file with all struct
 Detailed help:  
 
 `python cif2pdb/resid.py --help`
+
+## Useful tips
+
+In order to run functions from `resid` module using command line simpy use `python -c` one-liner. For instance, to quickly fetch sequence from PDB file execute the following command:
+
+```python -c 'from cif2pdb.resid import * ; print(get_sequence_from_pdb_file(path_to_pdb_file))'```
